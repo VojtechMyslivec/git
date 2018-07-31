@@ -63,7 +63,7 @@ test_expect_success GPG 'verify and show signatures' '
 	(
 		for tag in eighth-signed-alt
 		do
-			git verify-tag $tag 2>actual &&
+			test_must_fail git verify-tag $tag 2>actual &&
 			grep "Good signature from" actual &&
 			! grep "BAD signature from" actual &&
 			grep "not certified" actual &&
@@ -103,7 +103,7 @@ test_expect_success GPG 'verify signatures with --raw' '
 	(
 		for tag in eighth-signed-alt
 		do
-			git verify-tag --raw $tag 2>actual &&
+			test_must_fail git verify-tag --raw $tag 2>actual &&
 			grep "GOODSIG" actual &&
 			! grep "BADSIG" actual &&
 			grep "TRUST_UNDEFINED" actual &&
