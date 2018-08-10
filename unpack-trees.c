@@ -353,11 +353,19 @@ static int check_updates(struct unpack_trees_options *o)
 	struct index_state *index = &o->result;
 	struct checkout state = CHECKOUT_INIT;
 	int i;
+	int nr_duplicates = 0;
 
 	state.force = 1;
 	state.quiet = 1;
 	state.refresh_cache = 1;
 	state.istate = index;
+
+	if (o->clone) {
+		state.clone = 1;
+		state.nr_duplicates = &nr_duplicates;
+		for (i = 0; i < index->cache_nr; i++)
+			index->cache[i]->ce_flags &= ~CE_MATCHED;
+	}
 
 	progress = get_progress(o);
 
@@ -423,6 +431,20 @@ static int check_updates(struct unpack_trees_options *o)
 	errs |= finish_delayed_checkout(&state);
 	if (o->update)
 		git_attr_set_direction(GIT_ATTR_CHECKIN, NULL);
+
+	if (o->clone && state.nr_duplicates) {
+		warning(_("the following paths have collided and only one from the same\n"
+			  "colliding group is in the working tree:\n"));
+		for (i = 0; i < index->cache_nr; i++) {
+			struct cache_entry *ce = index->cache[i];
+
+			if (!(ce->ce_flags & CE_MATCHED))
+				continue;
+			fprintf(stderr, "  '%s'\n", ce->name);
+			ce->ce_flags &= ~CE_MATCHED;
+		}
+	}
+
 	return errs != 0;
 }
 

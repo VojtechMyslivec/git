@@ -399,6 +399,35 @@ static int check_path(const char *path, int len, struct stat *st, int skiplen)
 	return lstat(path, st);
 }
 
+static void mark_duplicate_entries(const struct checkout *state,
+				   struct cache_entry *ce, struct stat *st)
+{
+	int i;
+	int *count = state->nr_duplicates;
+
+	if (!count)
+		BUG("state->nr_duplicates must not be NULL");
+
+	ce->ce_flags |= CE_MATCHED;
+	(*count)++;
+
+#if !defined(GIT_WINDOWS_NATIVE) /* inode is always zero on Windows */
+	for (i = 0; i < state->istate->cache_nr; i++) {
+		struct cache_entry *dup = state->istate->cache[i];
+
+		if (dup->ce_flags & (CE_MATCHED | CE_VALID | CE_SKIP_WORKTREE))
+			continue;
+
+		if (ce_uptodate(dup) &&
+		    dup->ce_stat_data.sd_ino == st->st_ino) {
+			dup->ce_flags |= CE_MATCHED;
+			(*count)++;
+			break;
+		}
+	}
+#endif
+}
+
 /*
  * Write the contents from ce out to the working tree.
  *
@@ -454,6 +483,9 @@ int checkout_entry(struct cache_entry *ce,
 					path.buf);
 			return -1;
 		}
+
+		if (state->clone)
+			mark_duplicate_entries(state, ce, &st);
 
 		/*
 		 * We unlink the old file, to get the new one with the
