@@ -234,4 +234,40 @@ test_expect_success GPG 'check config gpg.format values' '
 	test_must_fail git commit -S --amend -m "fail"
 '
 
+test_expect_success GPG 'verify signatures with direct trust-model' '
+	(
+		echo "trust-model:0:\"direct" | gpgconf --change-options gpg
+	) &&
+	(
+		for commit in initial second merge fourth-signed \
+			fifth-signed sixth-signed seventh-signed tenth-signed
+		do
+			git verify-commit $commit 2>actual &&
+			grep "Good signature from" actual &&
+			! grep "BAD signature from" actual &&
+			echo $commit OK || exit 1
+		done
+	) &&
+	(
+		for commit in merge^2 fourth-unsigned sixth-unsigned \
+			seventh-unsigned ninth-unsigned
+		do
+			test_must_fail git verify-commit $commit 2>actual &&
+			! grep "Good signature from" actual &&
+			! grep "BAD signature from" actual &&
+			echo $commit OK || exit 1
+		done
+	) &&
+	(
+		for commit in eighth-signed-alt
+		do
+			test_must_fail git verify-commit $commit 2>actual &&
+			grep "Good signature from" actual &&
+			! grep "BAD signature from" actual &&
+			grep "do NOT trust" actual &&
+			echo $commit OK || exit 1
+		done
+	)
+'
+
 test_done

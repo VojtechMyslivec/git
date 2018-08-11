@@ -172,4 +172,38 @@ test_expect_success GPG 'verifying a forged tag with --format should fail silent
 	test_must_be_empty actual-forged
 '
 
+test_expect_success GPG 'verify signatures with direct trust-model' '
+	(
+		echo "trust-model:0:\"direct" | gpgconf --change-options gpg
+	) &&
+	(
+		for tag in initial second merge fourth-signed sixth-signed seventh-signed
+		do
+			git verify-tag $tag 2>actual &&
+			grep "Good signature from" actual &&
+			! grep "BAD signature from" actual &&
+			echo $tag OK || exit 1
+		done
+	) &&
+	(
+		for tag in fourth-unsigned fifth-unsigned sixth-unsigned
+		do
+			test_must_fail git verify-tag $tag 2>actual &&
+			! grep "Good signature from" actual &&
+			! grep "BAD signature from" actual &&
+			echo $tag OK || exit 1
+		done
+	) &&
+	(
+		for tag in eighth-signed-alt
+		do
+			test_must_fail git verify-tag $tag 2>actual &&
+			grep "Good signature from" actual &&
+			! grep "BAD signature from" actual &&
+			grep "do NOT trust" actual &&
+			echo $tag OK || exit 1
+		done
+	)
+'
+
 test_done
